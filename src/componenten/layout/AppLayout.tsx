@@ -1,6 +1,7 @@
 import { AppShell, Burger } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { Outlet } from "react-router";
+import { Link } from "react-router";
 
 function AppLayout() {
   const [opened, { toggle }] = useDisclosure();
@@ -16,8 +17,8 @@ function AppLayout() {
       </AppShell.Header>
 
       <AppShell.Navbar>
-        {/* <Link to="/">Home</Link>
-        <Link to="/mainpage">Main page</Link> */}
+        <Link to={"/"}>home</Link>
+        <Link to={"/homepage"}>homepage</Link>
       </AppShell.Navbar>
 
       <AppShell.Main>
