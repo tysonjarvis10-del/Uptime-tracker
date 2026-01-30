@@ -8,6 +8,7 @@ import {
   Legend,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { ServerResponse } from "../Types";
 
 ChartJS.register(
   CategoryScale,
@@ -15,70 +16,66 @@ ChartJS.register(
   PointElement,
   LineElement,
   Tooltip,
-  Legend
+  Legend,
 );
 
-export type UptimeCheck = {
-  checkedAt: string;
-  status: "UP" | "DOWN";
-};
-
-export type ServerUptime = {
-  id: string;
-  name: string;
-  checks: UptimeCheck[];
-};
-
 type Props = {
-  data: ServerUptime[];
+  servers: ServerResponse[];
 };
 
-export function UptimeLineChart({ data }: Props) {
-  if (data.length === 0) return null;
+export function UptimeLineChart({ servers }: Props) {
+  if (servers.length === 0) return null;
 
-  const labels = data[0].checks.map((check) =>
-    new Date(check.checkedAt).toLocaleTimeString()
-  );
+  const maxChecks = Math.max(...servers.map((s) => s.checks.length), 1);
 
-  const datasets = data.map((server, index) => ({
+  const labels = Array.from({ length: maxChecks }, (_, i) => {
+    if (servers[0].checks[i]) {
+      return new Date(servers[0].checks[i].checkedAt).toLocaleTimeString();
+    }
+    return `Check ${i + 1}`;
+  });
+
+  const colors = ["#22c55e", "#3b82f6", "#f97316", "#a855f7", "#ef4444"];
+
+  const datasets = servers.map((server, index) => ({
     label: server.name,
-    data: server.checks.map((c) => (c.status === "UP" ? 1 : 0)),
-    borderColor: index === 0 ? "green" : "blue",
-    backgroundColor:
-      index === 0 ? "rgba(0, 200, 0, 0.15)" : "rgba(0, 204, 240, 0.15)",
-    stepped: true,
-    tension: 0,
+    data: server.checks.map((c) => c.responseTimeMs),
+    borderColor: colors[index % colors.length],
+    backgroundColor: colors[index % colors.length],
+    tension: 0.4,
+    spanGaps: true,
+    pointRadius: 3,
   }));
 
   return (
-    <Line
-      data={{
-        labels,
-        datasets,
-      }}
-      options={{
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            min: 0,
-            max: 1,
-            ticks: {
-              stepSize: 0.5,
-              callback: (value) => {
-                if (value === 1) return "UP";
-                if (value === 0) return "DOWN";
-                return "";
+    <div style={{ height: 300, marginBottom: 40 }}>
+      <Line
+        data={{ labels, datasets }}
+        options={{
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: "Response time (ms)",
+              },
+            },
+            x: {
+              title: {
+                display: true,
+                text: "Time",
               },
             },
           },
-        },
-        plugins: {
-          legend: {
-            position: "top",
+          plugins: {
+            legend: {
+              position: "top" as const,
+            },
           },
-        },
-      }}
-    />
+        }}
+      />
+    </div>
   );
 }

@@ -1,36 +1,64 @@
-import { Paper } from "@mantine/core";
+import { useEffect, useRef } from "react";
 import { UptimeLineChart } from "../charts/UptimeLineChart";
-import type { ServerUptime } from "../charts/UptimeLineChart";
+import { ServerCards } from "../ServerCards";
+import type { ServerResponse, ResponseCheck } from "../Types";
 
-const dummyServers: ServerUptime[] = [
-  {
-    id: "server-1",
-    name: "Server 1",
-    checks: [
-      { checkedAt: "2025-01-06T08:00:00Z", status: "UP" },
-      { checkedAt: "2025-01-06T08:05:00Z", status: "UP" },
-      { checkedAt: "2025-01-06T08:10:00Z", status: "DOWN" },
-      { checkedAt: "2025-01-06T08:15:00Z", status: "UP" },
-      { checkedAt: "2025-01-06T08:20:00Z", status: "UP" },
-    ],
-  },
-  {
-    id: "server-2",
-    name: "Server 2",
-    checks: [
-      { checkedAt: "2025-01-06T08:00:00Z", status: "UP" },
-      { checkedAt: "2025-01-06T08:05:00Z", status: "DOWN" },
-      { checkedAt: "2025-01-06T08:10:00Z", status: "DOWN" },
-      { checkedAt: "2025-01-06T08:15:00Z", status: "UP" },
-      { checkedAt: "2025-01-06T08:20:00Z", status: "UP" },
-    ],
-  },
-];
+type Props = {
+  servers: ServerResponse[];
+  setServers: React.Dispatch<React.SetStateAction<ServerResponse[]>>;
+};
 
-export function DashboardOverviewPage() {
+export function DashboardOverviewPage({ servers, setServers }: Props) {
+  const serversRef = useRef(servers);
+
+  useEffect(() => {
+    serversRef.current = servers;
+  }, [servers]);
+
+  async function getResponseCheck(url: string): Promise<ResponseCheck> {
+    const start = performance.now();
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Bad response");
+
+      return {
+        checkedAt: new Date().toISOString(),
+        responseTimeMs: Math.round(performance.now() - start),
+      };
+    } catch {
+      return {
+        checkedAt: new Date().toISOString(),
+        responseTimeMs: null,
+      };
+    }
+  }
+
+  useEffect(() => {
+    const runCheck = async () => {
+      const updated = await Promise.all(
+        serversRef.current.map(async (server) => {
+          const check = await getResponseCheck(server.url);
+          return {
+            ...server,
+            checks: [...server.checks, check].slice(-20),
+          };
+        }),
+      );
+
+      setServers(updated);
+    };
+
+    runCheck();
+    const interval = setInterval(runCheck, 300000);
+
+    return () => clearInterval(interval);
+  }, [setServers]);
+
   return (
-    <Paper w={700} h={300} p="md" shadow="sm">
-      <UptimeLineChart data={dummyServers} />
-    </Paper>
+    <div style={{ padding: 20 }}>
+      <UptimeLineChart servers={servers} />
+      <ServerCards servers={servers} />
+    </div>
   );
 }
